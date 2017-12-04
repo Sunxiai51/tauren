@@ -7,14 +7,14 @@ package cn.tauren.framework.context;
 import java.util.Collection;
 
 import cn.tauren.framework.ConfigFileReader;
-import cn.tauren.framework.Constants;
 import cn.tauren.framework.aop.api.ProxyResolver;
-import cn.tauren.framework.aop.impl.ProxyResolverImpl;
+import cn.tauren.framework.aop.impl.DefaultProxyResolver;
 import cn.tauren.framework.exception.BeanException;
 import cn.tauren.framework.ioc.api.BeanFactory;
 import cn.tauren.framework.ioc.api.ClassScanner;
 import cn.tauren.framework.ioc.impl.DefaultBeanFactory;
 import cn.tauren.framework.ioc.impl.DefaultClassScanner;
+import cn.tauren.framework.util.AssertUtil;
 
 /**
  * <code>ApplicationContext</code>的默认实现, 粘合框架各模块
@@ -36,14 +36,12 @@ public class DefaultApplicationContext implements ApplicationContext {
     private ProxyResolver proxyResolver;
 
     public DefaultApplicationContext() {
-        this(Constants.DEFAULT_CONFIG_NAME);
-    }
+        pkgName = ConfigFileReader.getScanPackage();
+        AssertUtil.assertNotBlank(pkgName, "package location cann't by empty!");
 
-    public DefaultApplicationContext(String configFile) {
-        pkgName = ConfigFileReader.getScanPackage(configFile);
         scanner = new DefaultClassScanner(pkgName);
-        proxyResolver = new ProxyResolverImpl();
-        factory = new DefaultBeanFactory(pkgName, scanner, proxyResolver);
+        proxyResolver = new DefaultProxyResolver();
+        factory = new DefaultBeanFactory(scanner, proxyResolver);
     }
 
     @Override
@@ -64,6 +62,16 @@ public class DefaultApplicationContext implements ApplicationContext {
     @Override
     public Collection<Object> getBeans() {
         return factory.getBeans();
+    }
+
+    @Override
+    public void putClass(Class<?> clazz, String name, Object instance) {
+        factory.putClass(clazz, name, instance);
+    }
+
+    @Override
+    public boolean containsKey(String name) {
+        return factory.containsKey(name);
     }
 
 }
