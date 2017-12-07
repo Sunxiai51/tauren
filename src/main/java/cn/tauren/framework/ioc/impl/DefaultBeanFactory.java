@@ -11,14 +11,15 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import cn.tauren.framework.aop.annotation.Intercept;
 import cn.tauren.framework.aop.api.ProxyResolver;
 import cn.tauren.framework.exception.BeanException;
 import cn.tauren.framework.exception.BeanNotOfRequiredTypeException;
 import cn.tauren.framework.exception.NoSuchBeanException;
 import cn.tauren.framework.ioc.annotation.Bean;
+import cn.tauren.framework.ioc.api.BaseResolver;
 import cn.tauren.framework.ioc.api.BeanFactory;
 import cn.tauren.framework.ioc.api.BeanInjector;
-import cn.tauren.framework.ioc.api.BeanResolver;
 import cn.tauren.framework.ioc.api.ClassScanner;
 import cn.tauren.framework.mvc.annotation.Controller;
 import cn.tauren.framework.util.AssertUtil;
@@ -61,16 +62,22 @@ public class DefaultBeanFactory implements BeanFactory {
     /** 类注入器 */
     private final BeanInjector          injector;
 
-    private BeanResolver                beanAnnoResolver;
+    private BaseResolver                beanAnnoResolver;
 
-    private BeanResolver                contrAnnoResolver;
+    private BaseResolver                contrAnnoResolver;
+
+    private BaseResolver                interceptAnnoResolver;
+
+    private BaseResolver                transactionAnnoResolver;
 
     public DefaultBeanFactory(ClassScanner scanner, ProxyResolver proxyResolver) {
         nameContainer = new HashMap<String, Object>();
         typeContainer = new HashMap<Class<?>, Object>();
         this.scanner = scanner;
-        beanAnnoResolver = new BeanAnnoResolver(this, proxyResolver);
-        contrAnnoResolver = new ControllerAnnoResolver(this, proxyResolver);
+        beanAnnoResolver = new BeanAnnoResolver(this);
+        contrAnnoResolver = new ControllerAnnoResolver(this);
+        interceptAnnoResolver = new InterceptAnnoResolver(this, proxyResolver);
+        transactionAnnoResolver = new TransactionAnnoResolver(this, proxyResolver);
 
         //初始化容器
         initContainer();
@@ -152,12 +159,29 @@ public class DefaultBeanFactory implements BeanFactory {
         return nameContainer.containsKey(name);
     }
 
+    @Override
+    public void remove(Class<?> clazz, String name) {
+        nameContainer.remove(name);
+        typeContainer.remove(clazz);
+    }
+
     private void initContainer() {
+        //1.处理被@Bean标注的类
         List<Class<?>> beanAnnoClasses = scanner.getClassesByAnnotation(Bean.class);
         beanAnnoResolver.resolve(beanAnnoClasses);
 
+        //2.处理被@Controller标注的类
         List<Class<?>> contrAnnoClasses = scanner.getClassesByAnnotation(Controller.class);
         contrAnnoResolver.resolve(contrAnnoClasses);
+
+        //3.处理被@Intercept标注的类
+        List<Class<?>> intcptAnnoClasses = scanner.getClassesByAnnotation(Intercept.class);
+        interceptAnnoResolver.resolve(intcptAnnoClasses);
+
+        //4.处理@Bean中被@Transaction标注的类
+        List<Class<?>> beanTranAnnoClasses = scanner.getClassesByAnnotation(Bean.class);
+        transactionAnnoResolver.resolve(beanTranAnnoClasses);
+
     }
 
     /**
